@@ -1,0 +1,36 @@
+name: build-offline-plugins
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download plugin packages from Dify marketplace
+        run: |
+          mkdir -p pkgs out
+          while IFS='|' read -r pid full; do
+            name=$(echo "$pid" | tr '/' '_')
+            echo "Downloading $pid ..."
+            curl -fsSL --retry 3 "https://marketplace.dify.ai/api/v1/plugins/download?unique_identifier=$full" \
+              -o "pkgs/$name.difypkg"
+            ls -lh "pkgs/$name.difypkg"
+          done < plugin_ids.txt
+
+      - name: Repackage with bundled dependencies (native aarch64)
+        run: |
+          python3 -m pip install -q -U pip
+          for f in pkgs/*.difypkg; do
+            python3 inject.py "$f" out/
+          done
+          echo "=== 产物清单 ==="
+          ls -lh out/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dify-offline-plugins-arm64
+          path: out/
+          retention-days: 5
