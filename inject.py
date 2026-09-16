@@ -40,6 +40,20 @@ def main() -> None:
     pp = work / "pyproject.toml"
     if pp.exists():
         txt = pp.read_text(encoding="utf-8")
+        # 剔除 [dependency-groups] 段：uv sync 默认包含 dev 组，
+        # 而 dev 依赖（pytest/ruff/black 等）不在离线轮子里，会导致解析失败。
+        lines, skip = [], False
+        for line in txt.splitlines():
+            if line.startswith("[dependency-groups"):
+                skip = True
+                continue
+            if skip:
+                if line.startswith("["):
+                    skip = False
+                else:
+                    continue
+            lines.append(line)
+        txt = "\n".join(lines) + "\n"
         if "[tool.uv]" not in txt:
             txt += (
                 "\n[tool.uv]\n"
@@ -47,7 +61,7 @@ def main() -> None:
                 'find-links = ["./wheels/"]\n'
                 'environments = ["sys_platform == \'linux\'"]\n'
             )
-            pp.write_text(txt, encoding="utf-8")
+        pp.write_text(txt, encoding="utf-8")
 
     outdir.mkdir(parents=True, exist_ok=True)
     out = outdir / f"{stem}-offline.difypkg"
