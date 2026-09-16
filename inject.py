@@ -53,7 +53,9 @@ def main() -> None:
     out = outdir / f"{stem}-offline.difypkg"
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted(work.rglob("*")):
-            if f.is_file():
+            if f.is_file() and f.name != "uv.lock":
+                # 剔除 uv.lock：存在 lockfile 时 uv sync 按锁定的 PyPI 源安装，
+                # 会无视 no-index/find-links 离线配置；去掉后走本地轮子解析。
                 z.write(f, f.relative_to(work))
 
     print(f"done: {out} ({out.stat().st_size / 1024 / 1024:.1f} MB)")
